@@ -13,10 +13,10 @@ import (
 func main() {
   client := gors.NewClient("https://api.example.com")
 
-	client.SetDefaultHeaders(map[string]string{
-		"Authorization": "Bearer my-token",
-		"Content-Type":  "application/json",
-	})
+  client.SetDefaultHeaders(map[string]string{
+    "Authorization": "Bearer my-token",
+    "Content-Type":  "application/json",
+  })
 
   req := client.NewRequest(gors.GET, "/my/endpoint")
   req.SetQuery("search", "value1")
@@ -50,10 +50,10 @@ import (
 func main() {
   client := gors.NewClient("https://api.example.com")
 
-	client.SetDefaultHeaders(map[string]string{
-		"Authorization": "Bearer my-token",
-		"Content-Type":  "application/json",
-	})
+  client.SetDefaultHeaders(map[string]string{
+    "Authorization": "Bearer my-token",
+    "Content-Type":  "application/json",
+  })
 
   req := client.NewRequest(gors.GET, "/my/endpoint")
   req.SetQuery("search", "value1")
