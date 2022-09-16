@@ -12,11 +12,13 @@ import (
 )
 
 const (
-	GET    = "GET"
-	POST   = "POST"
-	PUT    = "PUT"
-	DELETE = "DELETE"
-	HEAD   = "HEAD"
+	GET     = "GET"
+	POST    = "POST"
+	PUT     = "PUT"
+	DELETE  = "DELETE"
+	HEAD    = "HEAD"
+	PATCH   = "PATCH"
+	OPTIONS = "OPTIONS"
 )
 
 type Request struct {
