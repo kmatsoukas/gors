@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -70,6 +71,11 @@ func (r *Request) SetQuery(key string, value interface{}) {
 func (r *Request) Send() (Response, error) {
 	apiURL, _ := url.Parse(r.baseURL)
 	apiURL.Path = path.Join(apiURL.Path, r.Path)
+
+	if strings.HasSuffix(r.Path, "/") {
+		apiURL.Path = fmt.Sprintf("%s/", apiURL.Path)
+	}
+
 	payloadBuffer := bytes.NewBuffer(r.Body)
 
 	client := http.Client{Timeout: time.Duration(10 * time.Second)}
