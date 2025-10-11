@@ -40,6 +40,14 @@ func (c *Client) SetDefaultHeaders(h map[string]string) {
 	c.DefaultHeaders = h
 }
 
+func (c *Client) AddDefaultHeader(key string, value interface{}) {
+	if c.DefaultHeaders == nil {
+		c.DefaultHeaders = make(map[string]string)
+	}
+
+	c.DefaultHeaders[key] = fmt.Sprintf("%v", value)
+}
+
 func (c Client) NewRequest(method string, path string) *Request {
 	request := Request{
 		baseURL: c.BaseURL,
