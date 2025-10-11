@@ -2,6 +2,7 @@ package gors
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -29,6 +30,7 @@ type Request struct {
 	Query   map[string]string
 	Body    []byte
 	Headers map[string]string
+	Timeout time.Duration // Default is 10 seconds
 }
 
 type Client struct {
@@ -54,6 +56,7 @@ func (c Client) NewRequest(method string, path string) *Request {
 		Method:  method, Path: path,
 		Query:   make(map[string]string),
 		Headers: make(map[string]string),
+		Timeout: 10 * time.Second,
 	}
 
 	for k, v := range c.DefaultHeaders {
@@ -61,6 +64,10 @@ func (c Client) NewRequest(method string, path string) *Request {
 	}
 
 	return &request
+}
+
+func (r *Request) SetTimeout(d time.Duration) {
+	r.Timeout = d
 }
 
 func (r *Request) SetHeader(key string, value interface{}) {
@@ -88,7 +95,7 @@ func (r *Request) SetJSONBody(v interface{}) error {
 	return nil
 }
 
-func (r *Request) Send() (*http.Response, error) {
+func (r *Request) SendWithCtx(ctx context.Context) (*http.Response, error) {
 	apiURL, _ := url.Parse(r.baseURL)
 	apiURL.Path = path.Join(apiURL.Path, r.Path)
 
@@ -99,7 +106,7 @@ func (r *Request) Send() (*http.Response, error) {
 	payloadBuffer := bytes.NewBuffer(r.Body)
 
 	client := http.Client{Timeout: time.Duration(10 * time.Second)}
-	req, err := http.NewRequest(r.Method, apiURL.String(), payloadBuffer)
+	req, err := http.NewRequestWithContext(ctx, r.Method, apiURL.String(), payloadBuffer)
 
 	if err != nil {
 		return nil, err
@@ -124,6 +131,13 @@ func (r *Request) Send() (*http.Response, error) {
 	}
 
 	return res, nil
+}
+
+func (r *Request) Send() (*http.Response, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
+	defer cancel()
+
+	return r.SendWithCtx(ctx)
 }
 
 // Unfortunately Go does not support generics with struct methods :-(
