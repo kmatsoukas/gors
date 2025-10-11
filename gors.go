@@ -105,7 +105,7 @@ func (r *Request) SendWithCtx(ctx context.Context) (*http.Response, error) {
 
 	payloadBuffer := bytes.NewBuffer(r.Body)
 
-	client := http.Client{Timeout: time.Duration(10 * time.Second)}
+	client := http.Client{}
 	req, err := http.NewRequestWithContext(ctx, r.Method, apiURL.String(), payloadBuffer)
 
 	if err != nil {
