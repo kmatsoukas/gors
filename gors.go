@@ -31,11 +31,6 @@ type Request struct {
 	Headers map[string]string
 }
 
-type Response struct {
-	Code int
-	Body []byte
-}
-
 type Client struct {
 	BaseURL        string
 	DefaultHeaders map[string]string
@@ -68,7 +63,24 @@ func (r *Request) SetQuery(key string, value interface{}) {
 	r.Query[key] = fmt.Sprintf("%v", value)
 }
 
-func (r *Request) Send() (Response, error) {
+func (r *Request) SetBody(body []byte) {
+	r.Body = body
+}
+
+func (r *Request) SetJSONBody(v interface{}) error {
+	j, err := json.Marshal(v)
+
+	if err != nil {
+		return err
+	}
+
+	r.Body = j
+	r.SetHeader("Content-Type", "application/json")
+
+	return nil
+}
+
+func (r *Request) Send() (*http.Response, error) {
 	apiURL, _ := url.Parse(r.baseURL)
 	apiURL.Path = path.Join(apiURL.Path, r.Path)
 
@@ -82,7 +94,7 @@ func (r *Request) Send() (Response, error) {
 	req, err := http.NewRequest(r.Method, apiURL.String(), payloadBuffer)
 
 	if err != nil {
-		return Response{}, err
+		return nil, err
 	}
 
 	for k, v := range r.Headers {
@@ -100,33 +112,37 @@ func (r *Request) Send() (Response, error) {
 	res, err := client.Do(req)
 
 	if err != nil {
-		return Response{}, err
+		return nil, err
 	}
 
-	defer res.Body.Close()
-	body, _ := io.ReadAll(res.Body)
-
-	return Response{Code: res.StatusCode, Body: body}, nil
+	return res, nil
 }
 
 // Unfortunately Go does not support generics with struct methods :-(
 // so we need to pass the request as a function parameter.
-func SendWithJSONResponse[T any](r *Request) (T, error) {
+func SendWithJSONResponse[T any](r *Request) (T, *http.Response, error) {
 	res, err := r.Send()
 
 	var j T
 
 	if err != nil {
-		return j, err
+		return j, res, err
 	}
 
-	err = json.Unmarshal(res.Body, &j)
+	body, err := io.ReadAll(res.Body)
+	defer res.Body.Close()
 
 	if err != nil {
-		return j, err
+		return j, res, err
 	}
 
-	return j, nil
+	err = json.Unmarshal(body, &j)
+
+	if err != nil {
+		return j, res, err
+	}
+
+	return j, res, nil
 }
 
 func NewClient(baseUrl string) Client {
