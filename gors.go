@@ -1,3 +1,6 @@
+// Package gors provides a small, opinionated HTTP client helper
+// that simplifies building and sending requests with JSON support
+// and convenient default headers/timeout handling.
 package gors
 
 import (
@@ -13,6 +16,7 @@ import (
 	"time"
 )
 
+// HTTP method string constants to use with Request.Method.
 const (
 	GET     = "GET"
 	POST    = "POST"
@@ -23,6 +27,16 @@ const (
 	OPTIONS = "OPTIONS"
 )
 
+// Request represents an HTTP request to be sent by the client.
+//
+// Fields:
+//   - baseURL: internal field set from Client.BaseURL when created
+//   - Method: HTTP verb (use provided constants)
+//   - Path: path component to append to baseURL
+//   - Query: query string key/value pairs
+//   - Body: raw request body bytes
+//   - Headers: request headers
+//   - Timeout: per-request timeout (default 10s)
 type Request struct {
 	baseURL string
 	Method  string
@@ -33,15 +47,22 @@ type Request struct {
 	Timeout time.Duration // Default is 10 seconds
 }
 
+// Client holds configuration for creating requests, primarily the
+// BaseURL that will be prepended to request paths and any
+// DefaultHeaders that are copied into new requests.
 type Client struct {
 	BaseURL        string
 	DefaultHeaders map[string]string
 }
 
+// SetDefaultHeaders replaces the client's default headers map.
+// These headers are copied into every Request created by NewRequest.
 func (c *Client) SetDefaultHeaders(h map[string]string) {
 	c.DefaultHeaders = h
 }
 
+// AddDefaultHeader adds or updates a single default header on the Client.
+// The value is formatted using fmt.Sprintf("%v").
 func (c *Client) AddDefaultHeader(key string, value interface{}) {
 	if c.DefaultHeaders == nil {
 		c.DefaultHeaders = make(map[string]string)
@@ -50,6 +71,9 @@ func (c *Client) AddDefaultHeader(key string, value interface{}) {
 	c.DefaultHeaders[key] = fmt.Sprintf("%v", value)
 }
 
+// NewRequest creates a new Request associated with this Client.
+// The returned Request will have default headers copied from the Client
+// and a default timeout of 10 seconds.
 func (c Client) NewRequest(method string, path string) *Request {
 	request := Request{
 		baseURL: c.BaseURL,
@@ -66,22 +90,29 @@ func (c Client) NewRequest(method string, path string) *Request {
 	return &request
 }
 
+// SetTimeout sets the per-request timeout used by Send().
 func (r *Request) SetTimeout(d time.Duration) {
 	r.Timeout = d
 }
 
+// SetHeader sets a header on the Request. The value is formatted with
+// fmt.Sprintf("%v").
 func (r *Request) SetHeader(key string, value interface{}) {
 	r.Headers[key] = fmt.Sprintf("%v", value)
 }
 
+// SetQuery sets a URL query parameter for the Request.
 func (r *Request) SetQuery(key string, value interface{}) {
 	r.Query[key] = fmt.Sprintf("%v", value)
 }
 
+// SetBody assigns raw bytes to the request body.
 func (r *Request) SetBody(body []byte) {
 	r.Body = body
 }
 
+// SetJSONBody marshals v to JSON and sets it as the request body.
+// It also sets the Content-Type header to application/json.
 func (r *Request) SetJSONBody(v interface{}) error {
 	j, err := json.Marshal(v)
 
@@ -95,6 +126,9 @@ func (r *Request) SetJSONBody(v interface{}) error {
 	return nil
 }
 
+// SendWithCtx builds and sends the HTTP request using the provided
+// context. It constructs the full URL from Request.baseURL + Request.Path,
+// applies headers and query parameters, and returns the raw *http.Response.
 func (r *Request) SendWithCtx(ctx context.Context) (*http.Response, error) {
 	apiURL, _ := url.Parse(r.baseURL)
 	apiURL.Path = path.Join(apiURL.Path, r.Path)
@@ -133,6 +167,8 @@ func (r *Request) SendWithCtx(ctx context.Context) (*http.Response, error) {
 	return res, nil
 }
 
+// Send sends the request using a context with the Request.Timeout value.
+// It is a convenience wrapper around SendWithCtx.
 func (r *Request) Send() (*http.Response, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
 	defer cancel()
@@ -142,6 +178,12 @@ func (r *Request) Send() (*http.Response, error) {
 
 // Unfortunately Go does not support generics with struct methods :-(
 // so we need to pass the request as a function parameter.
+// SendWithJSONResponse executes the request and attempts to unmarshal the
+// response body into the generic type T. It returns the unmarshaled value,
+// the raw *http.Response, and an error if any step fails.
+//
+// Note: the function reads the entire response body into memory before
+// unmarshalling, so use with caution for very large responses.
 func SendWithJSONResponse[T any](r *Request) (T, *http.Response, error) {
 	res, err := r.Send()
 
@@ -167,6 +209,7 @@ func SendWithJSONResponse[T any](r *Request) (T, *http.Response, error) {
 	return j, res, nil
 }
 
+// NewClient constructs a Client preconfigured with the provided base URL.
 func NewClient(baseUrl string) Client {
 	return Client{BaseURL: baseUrl}
 }
