@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -139,7 +140,13 @@ func (r *Request) SendWithCtx(ctx context.Context) (*http.Response, error) {
 
 	payloadBuffer := bytes.NewBuffer(r.Body)
 
-	client := http.Client{}
+	transport := &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout: r.Timeout,
+		}).DialContext,
+	}
+
+	client := http.Client{Transport: transport}
 	req, err := http.NewRequestWithContext(ctx, r.Method, apiURL.String(), payloadBuffer)
 
 	if err != nil {
@@ -170,8 +177,7 @@ func (r *Request) SendWithCtx(ctx context.Context) (*http.Response, error) {
 // Send sends the request using a context with the Request.Timeout value.
 // It is a convenience wrapper around SendWithCtx.
 func (r *Request) Send() (*http.Response, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), r.Timeout)
-	defer cancel()
+	ctx := context.Context(context.Background())
 
 	return r.SendWithCtx(ctx)
 }
