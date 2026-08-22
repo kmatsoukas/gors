@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 	"time"
 )
@@ -33,7 +32,9 @@ const (
 // Fields:
 //   - baseURL: internal field set from Client.BaseURL when created
 //   - Method: HTTP verb (use provided constants)
-//   - Path: path component to append to baseURL
+//   - Path: path component to append to baseURL. Segments are sent as given, so a
+//     segment holding a reserved character (an id that is itself a path, say) must be
+//     percent-encoded by the caller with url.PathEscape
 //   - Query: query string key/value pairs
 //   - Body: raw request body bytes
 //   - Headers: request headers
@@ -130,13 +131,20 @@ func (r *Request) SetJSONBody(v interface{}) error {
 // SendWithCtx builds and sends the HTTP request using the provided
 // context. It constructs the full URL from Request.baseURL + Request.Path,
 // applies headers and query parameters, and returns the raw *http.Response.
+//
+// Any percent-encoding in Request.Path is preserved as the caller wrote it.
 func (r *Request) SendWithCtx(ctx context.Context) (*http.Response, error) {
 	apiURL, _ := url.Parse(r.baseURL)
-	apiURL.Path = path.Join(apiURL.Path, r.Path)
 
-	if strings.HasSuffix(r.Path, "/") {
-		apiURL.Path = fmt.Sprintf("%s/", apiURL.Path)
+	// JoinPath joins the escaped path, so a percent-encoded segment survives (an id
+	// carrying a %2F must not leave as %252F). It can only do that for a path it can
+	// unescape though, and it drops one it cannot, so a stray % is escaped first.
+	reqPath := r.Path
+	if _, err := url.PathUnescape(reqPath); err != nil {
+		reqPath = strings.ReplaceAll(reqPath, "%", "%25")
 	}
+
+	apiURL = apiURL.JoinPath(reqPath)
 
 	payloadBuffer := bytes.NewBuffer(r.Body)
 
